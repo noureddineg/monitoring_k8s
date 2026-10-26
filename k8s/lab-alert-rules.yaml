@@ -1,0 +1,55 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: lab-alert-rules
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+  - name: lab.rules
+    rules:
+    - alert: NginxDown
+      expr: nginx_up == 0
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: "NGINX is not reachable by its exporter"
+        description: "nginx_up has been 0 for more than 30 seconds."
+    
+    - alert: NodeAppNoReplicasAvailable
+      expr: kube_deployment_status_replicas_available{namespace="default", deployment="lab-nodejs-deployment"} < 1
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: "The Node.js application has no available replica"
+        description: "Deployment {{ $labels.deployment }} has 0 available replicas."
+    
+    - alert: NodeAppHighErrorRate
+      expr: sum(rate(http_requests_total{status_code=~"5.."}[1m])) / sum(rate(http_requests_total[1m])) > 0.1
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "More than 10% of requests fail"
+        description: "Current error ratio: {{ $value | humanizePercentage }}"
+        
+    - alert: NodeAppSlowRequests
+      expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[1m]))) > 1
+      for: 1m
+      labels:
+        severity: warning
+      annotations:
+        summary: "95th percentile latency is above 1 second"
+        description: "p95 latency: {{ $value | humanizeDuration }}"
+        
+    - alert: PodRestartingFrequently
+      expr: increase(kube_pod_container_status_restarts_total{namespace="default"}[5m]) > 2
+      for: 0m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Pod {{ $labels.pod }} is restarting repeatedly"
+        description: "Container {{ $labels.container }} restarted more than 2 times in 5 minutes."

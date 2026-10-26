@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-nodejs-deployment
+  namespace: default
+  labels:
+    app: lab-nodejs-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lab-nodejs-app
+  template:
+    metadata:
+      labels:
+        app: lab-nodejs-app
+    spec:
+      containers:
+      - name: lab-nodejs
+        image: lab-nodejs-app:v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 4444
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 4444
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-nodejs-service
+  namespace: default
+  labels:
+    app: lab-nodejs-app
+spec:
+  type: ClusterIP
+  selector:
+    app: lab-nodejs-app
+  ports:
+  - name: http
+    port: 4444
+    targetPort: 4444
